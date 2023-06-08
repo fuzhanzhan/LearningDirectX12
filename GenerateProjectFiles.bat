@@ -49,7 +49,7 @@ PUSHD %CMAKE_BINARY_DIR%
 IF %ERRORLEVEL% NEQ 0 (
     PAUSE
 ) ELSE (
-    START LearningDirectX12.sln
+    rem START LearningDirectX12.sln
 )
 
 POPD
