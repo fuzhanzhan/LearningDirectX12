@@ -27,22 +27,22 @@ EffectPSO::EffectPSO( std::shared_ptr<dx12lib::Device> device, bool enableLighti
     // Setup the root signature
     // Load the vertex shader.
     ComPtr<ID3DBlob> vertexShaderBlob;
-    ThrowIfFailed( D3DReadFileToBlob( L"data/shaders/05-Models/Basic_VS.cso", &vertexShaderBlob ) );
+    ThrowIfFailed( D3DReadFileToBlob( L"data/shaders/HelloWorld/Basic_VS.cso", &vertexShaderBlob ) );
 
     // Load the pixel shader.
     ComPtr<ID3DBlob> pixelShaderBlob;
     if (enableLighting) {
         if (enableDecal) {
-            ThrowIfFailed( D3DReadFileToBlob( L"data/shaders/05-Models/Decal_PS.cso", &pixelShaderBlob ) );
+            ThrowIfFailed( D3DReadFileToBlob( L"data/shaders/HelloWorld/Decal_PS.cso", &pixelShaderBlob ) );
         }
         else
         {
-            ThrowIfFailed( D3DReadFileToBlob( L"data/shaders/05-Models/Lighting_PS.cso", &pixelShaderBlob ) );
+            ThrowIfFailed( D3DReadFileToBlob( L"data/shaders/HelloWorld/Lighting_PS.cso", &pixelShaderBlob ) );
         }
     }
     else
     {
-        ThrowIfFailed( D3DReadFileToBlob( L"data/shaders/05-Models/Unlit_PS.cso", &pixelShaderBlob ) );
+        ThrowIfFailed( D3DReadFileToBlob( L"data/shaders/HelloWorld/Unlit_PS.cso", &pixelShaderBlob ) );
     }
 
     // Create a root signature.
@@ -90,13 +90,16 @@ EffectPSO::EffectPSO( std::shared_ptr<dx12lib::Device> device, bool enableLighti
     // Create a color buffer with sRGB for gamma correction.
     DXGI_FORMAT backBufferFormat  = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
     DXGI_FORMAT depthBufferFormat = DXGI_FORMAT_D32_FLOAT;
+    DXGI_FORMAT gBufferFormat = DXGI_FORMAT_R32G32B32A32_FLOAT;
 
     // Check the best multisample quality level that can be used for the given back buffer format.
     DXGI_SAMPLE_DESC sampleDesc = m_Device->GetMultisampleQualityLevels( backBufferFormat );
 
     D3D12_RT_FORMAT_ARRAY rtvFormats = {};
-    rtvFormats.NumRenderTargets      = 1;
+    rtvFormats.NumRenderTargets      = 3;
     rtvFormats.RTFormats[0]          = backBufferFormat;
+    rtvFormats.RTFormats[1]          = backBufferFormat;
+    rtvFormats.RTFormats[2]          = gBufferFormat;
 
     CD3DX12_RASTERIZER_DESC rasterizerState( D3D12_DEFAULT );
     if (m_EnableDecal) {

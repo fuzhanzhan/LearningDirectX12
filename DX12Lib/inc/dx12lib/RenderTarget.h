@@ -50,8 +50,8 @@ class Texture;
 enum AttachmentPoint
 {
     Color0,
-    Color1,
-    Color2,
+    Diffuse,
+    Normal,
     Color3,
     Color4,
     Color5,

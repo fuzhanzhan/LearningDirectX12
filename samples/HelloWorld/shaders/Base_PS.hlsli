@@ -321,8 +321,17 @@ float4 SampleTexture(Texture2D t, float2 uv, float4 c)
     return c;
 }
 
-float4 main( PixelShaderInput IN ): SV_Target
+struct MRT
 {
+    float4 Color : SV_Target1;
+    float4 Diffuse : SV_Target0;
+    float4 Normal : SV_Target2;
+};
+
+float4 main( PixelShaderInput IN ) : SV_Target0
+{
+    //MRT mrt;
+    
     Material material = MaterialCB;
 
     // By default, use the alpha component of the diffuse color.
@@ -414,5 +423,11 @@ float4 main( PixelShaderInput IN ): SV_Target
     shadow = -N.z;
 #endif // ENABLE_LIGHTING
 
-    return float4( ( emissive + ambient + diffuse + specular ).rgb * shadow, alpha * material.Opacity );
+    //return float4( ( emissive + ambient + diffuse + specular ).rgb * shadow, alpha * material.Opacity );
+
+    //mrt.Color = float4( ( emissive + ambient + diffuse + specular ).rgb * shadow, alpha * material.Opacity ) * 10;
+    //mrt.Diffuse = diffuse;
+    //mrt.Normal = float4(N, 1.0);
+
+    return diffuse;
 }

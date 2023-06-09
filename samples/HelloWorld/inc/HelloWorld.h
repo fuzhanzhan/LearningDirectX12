@@ -74,6 +74,8 @@ public:
      */
     void LoadContent();
 
+    void CreateRenderTarget();
+    
     /**
      * Unload content that was loaded in LoadContent.
      */

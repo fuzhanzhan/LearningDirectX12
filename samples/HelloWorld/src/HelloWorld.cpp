@@ -246,42 +246,86 @@ void HelloWorld::LoadContent()
     m_DecalPSO    = std::make_shared<EffectPSO>( m_Device, true, true );
     m_UnlitPSO    = std::make_shared<EffectPSO>( m_Device, false, false );
 
+    CreateRenderTarget();
+
+    // Make sure the copy command queue is finished before leaving this function.
+    commandQueue.WaitForFenceValue( fence );
+}
+
+void HelloWorld::CreateRenderTarget()
+{
     // Create a color buffer with sRGB for gamma correction.
     DXGI_FORMAT backBufferFormat  = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
     DXGI_FORMAT depthBufferFormat = DXGI_FORMAT_D32_FLOAT;
+    DXGI_FORMAT gBufferFormat = DXGI_FORMAT_R32G32B32A32_FLOAT;
 
+    FLOAT clearColor[4] = { 0.4f, 0.6f, 0.9f, 1.0f };
+    FLOAT blackColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    
     // Check the best multisample quality level that can be used for the given back buffer format.
     DXGI_SAMPLE_DESC sampleDesc = m_Device->GetMultisampleQualityLevels( backBufferFormat );
 
-    // Create an off-screen render target with a single color buffer and a depth buffer.
-    auto colorDesc = CD3DX12_RESOURCE_DESC::Tex2D( backBufferFormat, m_Width, m_Height, 1, 1, sampleDesc.Count,
-                                                   sampleDesc.Quality, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET );
-    D3D12_CLEAR_VALUE colorClearValue;
-    colorClearValue.Format   = colorDesc.Format;
-    colorClearValue.Color[0] = 0.4f;
-    colorClearValue.Color[1] = 0.6f;
-    colorClearValue.Color[2] = 0.9f;
-    colorClearValue.Color[3] = 1.0f;
+    std::shared_ptr<Texture> colorTexture;
+    {
+        // Create an off-screen render target with a single color buffer and a depth buffer.
+        auto colorDesc = CD3DX12_RESOURCE_DESC::Tex2D( backBufferFormat, m_Width, m_Height, 1, 1, sampleDesc.Count,
+                                                       sampleDesc.Quality, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET );
+        D3D12_CLEAR_VALUE colorClearValue;
+        colorClearValue.Format   = colorDesc.Format;
+        colorClearValue.Color[0] = 0.4f;
+        colorClearValue.Color[1] = 0.6f;
+        colorClearValue.Color[2] = 0.9f;
+        colorClearValue.Color[3] = 1.0f;
 
-    auto colorTexture = m_Device->CreateTexture( colorDesc, &colorClearValue );
-    colorTexture->SetName( L"Color Render Target" );
+        colorTexture = m_Device->CreateTexture( colorDesc, &colorClearValue );
+        colorTexture->SetName( L"Color Render Target" );
+    }
+    std::shared_ptr<Texture> depthTexture;
+    {
+        // Create a depth buffer.
+        auto depthDesc = CD3DX12_RESOURCE_DESC::Tex2D( depthBufferFormat, m_Width, m_Height, 1, 1, sampleDesc.Count,
+                                                       sampleDesc.Quality, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL );
+        D3D12_CLEAR_VALUE depthClearValue;
+        depthClearValue.Format       = depthDesc.Format;
+        depthClearValue.DepthStencil = { 1.0f, 0 };
 
-    // Create a depth buffer.
-    auto depthDesc = CD3DX12_RESOURCE_DESC::Tex2D( depthBufferFormat, m_Width, m_Height, 1, 1, sampleDesc.Count,
-                                                   sampleDesc.Quality, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL );
-    D3D12_CLEAR_VALUE depthClearValue;
-    depthClearValue.Format       = depthDesc.Format;
-    depthClearValue.DepthStencil = { 1.0f, 0 };
+        depthTexture = m_Device->CreateTexture( depthDesc, &depthClearValue );
+        depthTexture->SetName( L"Depth Render Target" );
+    }
+    std::shared_ptr<Texture> diffuseTexture;
+    {
+        auto diffuseDesc = CD3DX12_RESOURCE_DESC::Tex2D( backBufferFormat, m_Width, m_Height, 1, 1, sampleDesc.Count,
+                                                         sampleDesc.Quality, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET );
+        D3D12_CLEAR_VALUE clearValue;
+        clearValue.Format = diffuseDesc.Format;
+        clearValue.Color[0] = 0.0f;
+        clearValue.Color[1] = 0.0f;
+        clearValue.Color[2] = 0.0f;
+        clearValue.Color[3] = 0.0f;
 
-    auto depthTexture = m_Device->CreateTexture( depthDesc, &depthClearValue );
-    depthTexture->SetName( L"Depth Render Target" );
+        diffuseTexture = m_Device->CreateTexture( diffuseDesc, &clearValue );
+        diffuseTexture->SetName( L"Diffuse Render Target" );
+    }
+    std::shared_ptr<Texture> normalTexture;
+    {
+        auto normalDesc = CD3DX12_RESOURCE_DESC::Tex2D( gBufferFormat, m_Width, m_Height, 1, 1, sampleDesc.Count,
+                                                         sampleDesc.Quality, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET );
+        D3D12_CLEAR_VALUE clearValue;
+        clearValue.Format = normalDesc.Format;
+        clearValue.Color[0] = 0.0f;
+        clearValue.Color[1] = 0.0f;
+        clearValue.Color[2] = 0.0f;
+        clearValue.Color[3] = 0.0f;
+
+        normalTexture = m_Device->CreateTexture( normalDesc, &clearValue );
+        normalTexture->SetName( L"Normal Render Target" );
+    }
 
     // Attach the textures to the render target.
     m_RenderTarget.AttachTexture( AttachmentPoint::Color0, colorTexture );
     m_RenderTarget.AttachTexture( AttachmentPoint::DepthStencil, depthTexture );
-
-    // Make sure the copy command queue is finished before leaving this function.
-    commandQueue.WaitForFenceValue( fence );
+    m_RenderTarget.AttachTexture( AttachmentPoint::Diffuse, diffuseTexture );
+    m_RenderTarget.AttachTexture( AttachmentPoint::Normal, normalTexture );
 }
 
 void HelloWorld::UnloadContent() {}
@@ -405,10 +449,13 @@ void HelloWorld::OnRender()
         // Clear the render targets.
         {
             FLOAT clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
+            FLOAT blackColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
             commandList->ClearTexture( renderTarget.GetTexture( AttachmentPoint::Color0 ), clearColor );
             commandList->ClearDepthStencilTexture( renderTarget.GetTexture( AttachmentPoint::DepthStencil ),
                                                    D3D12_CLEAR_FLAG_DEPTH );
+            commandList->ClearTexture( renderTarget.GetTexture( AttachmentPoint::Diffuse ), blackColor );
+            commandList->ClearTexture( renderTarget.GetTexture( AttachmentPoint::Normal ), blackColor );
         }
 
         commandList->SetViewport( m_Viewport );
